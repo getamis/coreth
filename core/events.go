@@ -39,6 +39,9 @@ type NewTxsEvent struct{ Txs []*types.Transaction }
 // its head to [Block].
 type NewTxPoolHeadEvent struct{ Head *types.Header }
 
+// PendingLocalTxsEvent is posted when there are pending local transactions in the transaction pool.
+type PendingLocalTxsEvent struct{ Txs []*types.Transaction }
+
 // NewTxPoolReorgEvent is posted when the pool head is updated.
 type NewTxPoolReorgEvent struct{ Head *types.Header }
 

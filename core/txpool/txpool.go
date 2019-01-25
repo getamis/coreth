@@ -456,6 +456,16 @@ func (p *TxPool) IteratePending(f func(tx *types.Transaction) bool) {
 	}
 }
 
+// SubscribePendingLocalTxsEvent registers a subscription of PendingLocalTxsEvent and
+// starts sending event to the given channel.
+func (p *TxPool) SubscribePendingLocalTxsEvent(ch chan<- core.PendingLocalTxsEvent) event.Subscription {
+	subs := make([]event.Subscription, len(p.subpools))
+	for i, subpool := range p.subpools {
+		subs[i] = subpool.SubscribePendingLocalTransactions(ch)
+	}
+	return p.subs.Track(event.JoinSubscriptions(subs...))
+}
+
 // SubscribeTransactions registers a subscription for new transaction events,
 // supporting feeding only newly seen or also resurrected transactions.
 func (p *TxPool) SubscribeTransactions(ch chan<- core.NewTxsEvent, reorgs bool) event.Subscription {
