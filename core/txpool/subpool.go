@@ -154,6 +154,9 @@ type SubPool interface {
 	// or also for reorged out ones.
 	SubscribeTransactions(ch chan<- core.NewTxsEvent, reorgs bool) event.Subscription
 
+	// SubscribePendingLocalTransactions subscribes to pending local transaction events.
+	SubscribePendingLocalTransactions(ch chan<- core.PendingLocalTxsEvent) event.Subscription
+
 	// Nonce returns the next nonce of an account, with all transactions executable
 	// by the pool already applied on top.
 	Nonce(addr common.Address) uint64
