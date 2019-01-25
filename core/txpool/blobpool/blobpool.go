@@ -321,10 +321,11 @@ type BlobPool struct {
 	spent  map[common.Address]*uint256.Int  // Expenditure tracking for individual accounts
 	evict  *evictHeap                       // Heap of cheapest accounts for eviction when full
 
-	discoverFeed event.Feed // Event feed to send out new tx events on pool discovery (reorg excluded)
-	insertFeed   event.Feed // Event feed to send out new tx events on pool inclusion (reorg included)
-	queuedTxFeed event.Feed
-	eventScope   event.SubscriptionScope // Event scope to track and mass unsubscribe on termination
+	discoverFeed       event.Feed // Event feed to send out new tx events on pool discovery (reorg excluded)
+	insertFeed         event.Feed // Event feed to send out new tx events on pool inclusion (reorg included)
+	queuedTxFeed       event.Feed
+	pendingLocalTxFeed event.Feed
+	eventScope         event.SubscriptionScope // Event scope to track and mass unsubscribe on termination
 
 	lock sync.RWMutex // Mutex protecting the pool during reorg handling
 }
@@ -1653,6 +1654,11 @@ func (p *BlobPool) SubscribeTransactions(ch chan<- core.NewTxsEvent, reorgs bool
 // SubscribeQueuedTransactions subscribes to new queued transaction events.
 func (p *BlobPool) SubscribeQueuedTransactions(ch chan<- core.NewQueuedTxsEvent) event.Subscription {
 	return p.eventScope.Track(p.queuedTxFeed.Subscribe(ch))
+}
+
+// SubscribePendingLocalTransactions subscribes to pending local transaction events.
+func (p *BlobPool) SubscribePendingLocalTransactions(ch chan<- core.PendingLocalTxsEvent) event.Subscription {
+	return p.eventScope.Track(p.pendingLocalTxFeed.Subscribe(ch))
 }
 
 // Nonce returns the next nonce of an account, with all transactions executable

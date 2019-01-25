@@ -36,6 +36,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/prque"
+	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/holiman/uint256"
+
 	"github.com/ava-labs/coreth/consensus/dummy"
 	"github.com/ava-labs/coreth/core"
 	"github.com/ava-labs/coreth/core/state"
@@ -44,11 +50,6 @@ import (
 	"github.com/ava-labs/coreth/metrics"
 	"github.com/ava-labs/coreth/params"
 	"github.com/ava-labs/coreth/utils"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/prque"
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/holiman/uint256"
 )
 
 const (
@@ -137,10 +138,11 @@ type BlockChain interface {
 
 // Config are the configuration parameters of the transaction pool.
 type Config struct {
-	Locals    []common.Address // Addresses that should be treated by default as local
-	NoLocals  bool             // Whether local transaction handling should be disabled
-	Journal   string           // Journal of local transactions to survive node restarts
-	Rejournal time.Duration    // Time interval to regenerate the local transaction journal
+	Locals                  []common.Address // Addresses that should be treated by default as local
+	NoLocals                bool             // Whether local transaction handling should be disabled
+	Journal                 string           // Journal of local transactions to survive node restarts
+	Rejournal               time.Duration    // Time interval to regenerate the local transaction journal
+	BroadcastPendingLocalTx time.Duration    // Time interval to broadcast the local transaction
 
 	PriceLimit uint64 // Minimum gas price to enforce for acceptance into the pool
 	PriceBump  uint64 // Minimum price bump percentage to replace an already existing transaction (nonce)
@@ -160,6 +162,8 @@ var DefaultConfig = Config{
 	Journal:   "",
 	Rejournal: time.Hour,
 
+	BroadcastPendingLocalTx: 5 * time.Minute,
+
 	PriceLimit: 1,
 	PriceBump:  10,
 
@@ -178,6 +182,10 @@ func (config *Config) sanitize() Config {
 	if conf.Rejournal < time.Second {
 		log.Warn("Sanitizing invalid txpool journal time", "provided", conf.Rejournal, "updated", time.Second)
 		conf.Rejournal = time.Second
+	}
+	if conf.BroadcastPendingLocalTx < time.Second {
+		log.Warn("Sanitizing invalid txpool broadcast local tx time", "provided", conf.BroadcastPendingLocalTx, "updated", time.Second)
+		conf.BroadcastPendingLocalTx = time.Second
 	}
 	if conf.PriceLimit < 1 {
 		log.Warn("Sanitizing invalid txpool price limit", "provided", conf.PriceLimit, "updated", DefaultConfig.PriceLimit)
@@ -218,16 +226,17 @@ func (config *Config) sanitize() Config {
 // current state) and future transactions. Transactions move between those
 // two states over time as they are received and processed.
 type LegacyPool struct {
-	config       Config
-	chainconfig  *params.ChainConfig
-	chain        BlockChain
-	gasTip       atomic.Pointer[uint256.Int]
-	minimumFee   *big.Int
-	txFeed       event.Feed
-	queuedTxFeed event.Feed
-	scope        event.SubscriptionScope
-	signer       types.Signer
-	mu           sync.RWMutex
+	config             Config
+	chainconfig        *params.ChainConfig
+	chain              BlockChain
+	gasTip             atomic.Pointer[uint256.Int]
+	minimumFee         *big.Int
+	txFeed             event.Feed
+	queuedTxFeed       event.Feed
+	pendingLocalTxFeed event.Feed
+	scope              event.SubscriptionScope
+	signer             types.Signer
+	mu                 sync.RWMutex
 
 	// [currentStateLock] is required to allow concurrent access to address nonces
 	// and balances during reorgs and gossip handling.
@@ -380,6 +389,10 @@ func (pool *LegacyPool) loop() {
 
 	// Notify tests that the init phase is done
 	close(pool.initDoneCh)
+
+	pendingLocalTxs := time.NewTicker(pool.config.BroadcastPendingLocalTx)
+	defer pendingLocalTxs.Stop()
+
 	for {
 		select {
 		// Handle pool shutdown
@@ -426,6 +439,23 @@ func (pool *LegacyPool) loop() {
 				}
 				pool.mu.Unlock()
 			}
+
+		case <-pendingLocalTxs.C:
+			pool.mu.RLock()
+			lTxs := types.Transactions{}
+			for addr, list := range pool.pending {
+				// grab local transactions
+				if !pool.locals.contains(addr) {
+					continue
+				}
+
+				lTxs = append(lTxs, list.Flatten()...)
+			}
+			pool.mu.RUnlock()
+
+			if len(lTxs) != 0 {
+				go pool.pendingLocalTxFeed.Send(core.PendingLocalTxsEvent{Txs: lTxs})
+			}
 		}
 	}
 }
@@ -465,6 +495,11 @@ func (pool *LegacyPool) SubscribeTransactions(ch chan<- core.NewTxsEvent, reorgs
 // SubscribeQueuedTransactions subscribes to new queued transaction events.
 func (pool *LegacyPool) SubscribeQueuedTransactions(ch chan<- core.NewQueuedTxsEvent) event.Subscription {
 	return pool.scope.Track(pool.queuedTxFeed.Subscribe(ch))
+}
+
+// SubscribePendingLocalTransactions subscribes to pending local transaction events.
+func (pool *LegacyPool) SubscribePendingLocalTransactions(ch chan<- core.PendingLocalTxsEvent) event.Subscription {
+	return pool.scope.Track(pool.pendingLocalTxFeed.Subscribe(ch))
 }
 
 // SetGasTip updates the minimum gas tip required by the transaction pool for a
