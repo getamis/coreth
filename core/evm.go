@@ -29,14 +29,15 @@ package core
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/holiman/uint256"
+
 	"github.com/ava-labs/coreth/consensus"
 	"github.com/ava-labs/coreth/consensus/misc/eip4844"
 	"github.com/ava-labs/coreth/core/types"
 	"github.com/ava-labs/coreth/core/vm"
 	"github.com/ava-labs/coreth/predicate"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/holiman/uint256"
 )
 
 // ChainContext supports retrieving headers and consensus parameters from the
@@ -179,6 +180,13 @@ func CanTransferMC(db vm.StateDB, addr common.Address, to common.Address, coinID
 func Transfer(db vm.StateDB, sender, recipient common.Address, amount *uint256.Int) {
 	db.SubBalance(sender, amount)
 	db.AddBalance(recipient, amount)
+	if amount.Cmp(common.U2560) > 0 {
+		db.AddTransferLog(&types.TransferLog{
+			From:  sender,
+			To:    recipient,
+			Value: new(big.Int).Set(amount.ToBig()),
+		})
+	}
 }
 
 // Transfer subtracts amount from sender and adds amount to recipient using the given Db
