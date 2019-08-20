@@ -218,14 +218,16 @@ func (config *Config) sanitize() Config {
 // current state) and future transactions. Transactions move between those
 // two states over time as they are received and processed.
 type LegacyPool struct {
-	config      Config
-	chainconfig *params.ChainConfig
-	chain       BlockChain
-	gasTip      atomic.Pointer[uint256.Int]
-	minimumFee  *big.Int
-	txFeed      event.Feed
-	signer      types.Signer
-	mu          sync.RWMutex
+	config       Config
+	chainconfig  *params.ChainConfig
+	chain        BlockChain
+	gasTip       atomic.Pointer[uint256.Int]
+	minimumFee   *big.Int
+	txFeed       event.Feed
+	queuedTxFeed event.Feed
+	scope        event.SubscriptionScope
+	signer       types.Signer
+	mu           sync.RWMutex
 
 	// [currentStateLock] is required to allow concurrent access to address nonces
 	// and balances during reorgs and gossip handling.
@@ -458,6 +460,11 @@ func (pool *LegacyPool) SubscribeTransactions(ch chan<- core.NewTxsEvent, reorgs
 	// is because the new txs are added to the queue, resurrected ones too and
 	// reorgs run lazily, so separating the two would need a marker.
 	return pool.txFeed.Subscribe(ch)
+}
+
+// SubscribeQueuedTransactions subscribes to new queued transaction events.
+func (pool *LegacyPool) SubscribeQueuedTransactions(ch chan<- core.NewQueuedTxsEvent) event.Subscription {
+	return pool.scope.Track(pool.queuedTxFeed.Subscribe(ch))
 }
 
 // SetGasTip updates the minimum gas tip required by the transaction pool for a
@@ -755,6 +762,9 @@ func (pool *LegacyPool) add(tx *types.Transaction, local bool) (replaced bool, e
 	}
 	// already validated by this point
 	from, _ := types.Sender(pool.signer, tx)
+
+	// Broadcast a new tx anyway if it's valid
+	go pool.queuedTxFeed.Send(core.NewQueuedTxsEvent{Txs: types.Transactions{tx}})
 
 	// If the address is not yet known, request exclusivity to track the account
 	// only by this subpool until all transactions are evicted
