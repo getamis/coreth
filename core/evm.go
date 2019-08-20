@@ -170,6 +170,13 @@ func CanTransferMC(db vm.StateDB, addr common.Address, to common.Address, coinID
 func Transfer(db vm.StateDB, sender, recipient common.Address, amount *big.Int) {
 	db.SubBalance(sender, amount)
 	db.AddBalance(recipient, amount)
+	if amount.Cmp(common.Big0) > 0 {
+		db.AddTransferLog(&types.TransferLog{
+			From:  sender,
+			To:    recipient,
+			Value: new(big.Int).Set(amount),
+		})
+	}
 }
 
 // Transfer subtracts amount from sender and adds amount to recipient using the given Db
