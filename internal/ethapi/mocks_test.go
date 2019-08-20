@@ -654,6 +654,20 @@ func (mr *MockBackendMockRecorder) SubscribeLogsEvent(ch any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeLogsEvent", reflect.TypeOf((*MockBackend)(nil).SubscribeLogsEvent), ch)
 }
 
+// SubscribeNewQueuedTxsEvent mocks base method.
+func (m *MockBackend) SubscribeNewQueuedTxsEvent(arg0 chan<- core.NewQueuedTxsEvent) event.Subscription {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SubscribeNewQueuedTxsEvent", arg0)
+	ret0, _ := ret[0].(event.Subscription)
+	return ret0
+}
+
+// SubscribeNewQueuedTxsEvent indicates an expected call of SubscribeNewQueuedTxsEvent.
+func (mr *MockBackendMockRecorder) SubscribeNewQueuedTxsEvent(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeNewQueuedTxsEvent", reflect.TypeOf((*MockBackend)(nil).SubscribeNewQueuedTxsEvent), arg0)
+}
+
 // SubscribeNewTxsEvent mocks base method.
 func (m *MockBackend) SubscribeNewTxsEvent(arg0 chan<- core.NewTxsEvent) event.Subscription {
 	m.ctrl.T.Helper()
