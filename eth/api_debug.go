@@ -389,15 +389,26 @@ func (api *DebugAPI) isFirewood() bool {
 	return api.eth.blockchain.CacheConfig().StateScheme == customrawdb.FirewoodScheme
 }
 
-// GetTransferLogs is a debug API function that returns the transfer logs for a block hash, if known.
-func (api *DebugAPI) GetTransferLogs(ctx context.Context, hash common.Hash) ([]*types.TransferLog, error) {
-	return api.eth.blockchain.GetTransferLogs(hash)
-}
-
 // GetBlockReceipts returns all transaction receipts of the specified block.
 func (api *DebugAPI) GetBlockReceipts(blockHash common.Hash) (types.Receipts, error) {
 	if receipts := api.eth.blockchain.GetReceiptsByHash(blockHash); receipts != nil {
 		return receipts, nil
 	}
 	return nil, errors.New("unknown receipts")
+}
+
+// GetTransferLogs is a debug API function that returns the transfer logs for a block hash, if known.
+func (api *DebugAPI) GetTransferLogs(ctx context.Context, hash common.Hash) ([]*types.TransferLog, error) {
+	number := rawdb.ReadHeaderNumber(api.eth.ChainDb(), hash)
+	if number == nil {
+		return nil, errors.New("unknown transfer logs")
+	}
+	transferLogs, err := rawdb.ReadTransferLogs(api.eth.ChainDb(), hash, *number)
+	if err != nil {
+		return nil, err
+	}
+	if transferLogs != nil {
+		return transferLogs, nil
+	}
+	return nil, errors.New("unknown transfer logs")
 }
