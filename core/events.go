@@ -44,6 +44,9 @@ type NewTxPoolReorgEvent struct{ Head *types.Header }
 // RemovedLogsEvent is posted when a reorg happens
 type RemovedLogsEvent struct{ Logs []*types.Log }
 
+// NewQueuedTxsEvent is posted when a batch of transactions enter the transaction pool.
+type NewQueuedTxsEvent struct{ Txs []*types.Transaction }
+
 type ChainEvent struct {
 	Block *types.Block
 	Hash  common.Hash
