@@ -345,3 +345,12 @@ func (bc *BlockChain) GetLogs(hash common.Hash, number uint64) [][]*types.Log {
 	logs = bc.collectUnflattenedLogs(block, false)
 	return logs
 }
+
+// GetTransferLogs retrieves the transfer logs for all transactions in a given block.
+func (bc *BlockChain) GetTransferLogs(hash common.Hash) []*types.TransferLog {
+	number := rawdb.ReadHeaderNumber(bc.db, hash)
+	if number == nil {
+		return nil
+	}
+	return rawdb.ReadTransferLogs(bc.db, hash, *number)
+}

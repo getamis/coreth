@@ -1444,6 +1444,8 @@ func (bc *BlockChain) insertBlock(block *types.Block, writes bool) error {
 	if err := bc.writeBlockAndSetHead(block, receipts, logs, statedb); err != nil {
 		return err
 	}
+	bc.WriteTransferLogs(block.Hash(), block.NumberU64(), statedb.TransferLogs())
+
 	// Update the metrics touched during block commit
 	accountCommitTimer.Inc(statedb.AccountCommits.Milliseconds())   // Account commits are complete, we can mark them
 	storageCommitTimer.Inc(statedb.StorageCommits.Milliseconds())   // Storage commits are complete, we can mark them
@@ -2208,4 +2210,11 @@ func (bc *BlockChain) setTxIndexTail(newTail uint64) error {
 		rawdb.WriteTxIndexTail(bc.db, newTail)
 	}
 	return nil
+}
+
+// WriteTransferLogs writes all the transfer logs belonging to a block.
+func (bc *BlockChain) WriteTransferLogs(hash common.Hash, number uint64, transferLogs []*types.TransferLog) {
+	bc.wg.Add(1)
+	defer bc.wg.Done()
+	rawdb.WriteTransferLogs(bc.db, hash, number, transferLogs)
 }
