@@ -87,6 +87,8 @@ type Client interface {
 	SyncProgress(ctx context.Context) error
 	SubscribeNewAcceptedTransactions(context.Context, chan<- *common.Hash) (interfaces.Subscription, error)
 	SubscribeNewPendingTransactions(context.Context, chan<- *common.Hash) (interfaces.Subscription, error)
+	SubscribePendingTransactions(ctx context.Context, ch chan<- common.Hash) (interfaces.Subscription, error)
+	SubscribeQueuedTransactions(ctx context.Context, ch chan<- *types.Transaction) (interfaces.Subscription, error)
 	SubscribeNewHead(context.Context, chan<- *types.Header) (interfaces.Subscription, error)
 	NetworkID(context.Context) (*big.Int, error)
 	BalanceAt(context.Context, common.Address, *big.Int) (*big.Int, error)
@@ -440,6 +442,14 @@ func (ec *client) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header)
 		return nil, err
 	}
 	return sub, nil
+}
+
+func (ec *client) SubscribePendingTransactions(ctx context.Context, ch chan<- common.Hash) (interfaces.Subscription, error) {
+	return ec.c.EthSubscribe(ctx, ch, "newPendingTransactions")
+}
+
+func (ec *client) SubscribeQueuedTransactions(ctx context.Context, ch chan<- *types.Transaction) (interfaces.Subscription, error) {
+	return ec.c.EthSubscribe(ctx, ch, "newQueuedTransactions")
 }
 
 // State Access
