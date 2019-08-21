@@ -152,6 +152,9 @@ type StateDB struct {
 
 	// Testing hooks
 	onCommit func(states *triestate.Set) // Hook invoked when commit is performed
+
+	// transferLogs records trasfer logs for each transaction.
+	transferLogs map[common.Hash][]*types.TransferLog
 }
 
 // New creates a new state from a given trie.
@@ -186,6 +189,7 @@ func NewWithSnapshot(root common.Hash, db Database, snap snapshot.Snapshot) (*St
 		stateObjectsDestruct:  make(map[common.Address]*types.StateAccount),
 		logs:                  make(map[common.Hash][]*types.Log),
 		preimages:             make(map[common.Hash][]byte),
+		transferLogs:          make(map[common.Hash][]*types.TransferLog),
 		journal:               newJournal(),
 		predicateStorageSlots: make(map[common.Address][][]byte),
 		accessList:            newAccessList(),
@@ -285,6 +289,25 @@ func (s *StateDB) GetLogData() ([][]common.Hash, [][]byte) {
 		}
 	}
 	return topics, logData
+}
+
+func (self *StateDB) AddTransferLog(transferLog *types.TransferLog) {
+	self.journal.append(addTransferLogChange{txhash: self.thash})
+
+	transferLog.TxHash = self.thash
+	self.transferLogs[self.thash] = append(self.transferLogs[self.thash], transferLog)
+}
+
+func (self *StateDB) GetTransferLogs(hash common.Hash) []*types.TransferLog {
+	return self.transferLogs[hash]
+}
+
+func (self *StateDB) TransferLogs() []*types.TransferLog {
+	var logs []*types.TransferLog
+	for _, lgs := range self.transferLogs {
+		logs = append(logs, lgs...)
+	}
+	return logs
 }
 
 // AddPreimage records a SHA3 preimage seen by the VM.
@@ -814,6 +837,7 @@ func (s *StateDB) Copy() *StateDB {
 		logs:                 make(map[common.Hash][]*types.Log, len(s.logs)),
 		logSize:              s.logSize,
 		preimages:            make(map[common.Hash][]byte, len(s.preimages)),
+		transferLogs:         make(map[common.Hash][]*types.TransferLog),
 		journal:              newJournal(),
 		hasher:               crypto.NewKeccakState(),
 
@@ -889,6 +913,10 @@ func (s *StateDB) Copy() *StateDB {
 	state.transientStorage = s.transientStorage.Copy()
 	state.predicateStorageSlots = copyPredicateStorageSlots(s.predicateStorageSlots)
 
+	for hash, transferLogs := range s.transferLogs {
+		state.transferLogs[hash] = make([]*types.TransferLog, len(transferLogs))
+		copy(state.transferLogs[hash], transferLogs)
+	}
 	// If there's a prefetcher running, make an inactive copy of it that can
 	// only access data but does not actively preload (since the user will not
 	// know that they need to explicitly terminate an active copy).
