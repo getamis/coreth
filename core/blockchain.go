@@ -106,11 +106,12 @@ var (
 )
 
 const (
-	bodyCacheLimit     = 256
-	blockCacheLimit    = 256
-	receiptsCacheLimit = 32
-	txLookupCacheLimit = 1024
-	badBlockLimit      = 10
+	bodyCacheLimit         = 256
+	blockCacheLimit        = 256
+	receiptsCacheLimit     = 32
+	transferLogsCacheLimit = 32
+	txLookupCacheLimit     = 1024
+	badBlockLimit          = 10
 
 	// BlockChainVersion ensures that an incompatible database forces a resync from scratch.
 	//
@@ -258,11 +259,12 @@ type BlockChain struct {
 
 	currentBlock atomic.Pointer[types.Header] // Current head of the block chain
 
-	bodyCache     *lru.Cache[common.Hash, *types.Body]                // Cache for the most recent block bodies
-	receiptsCache *lru.Cache[common.Hash, []*types.Receipt]           // Cache for the most recent receipts per block
-	blockCache    *lru.Cache[common.Hash, *types.Block]               // Cache for the most recent entire blocks
-	txLookupCache *lru.Cache[common.Hash, *rawdb.LegacyTxLookupEntry] // Cache for the most recent transaction lookup data.
-	badBlocks     *lru.Cache[common.Hash, *badBlock]                  // Cache for bad blocks
+	bodyCache         *lru.Cache[common.Hash, *types.Body]                // Cache for the most recent block bodies
+	receiptsCache     *lru.Cache[common.Hash, []*types.Receipt]           // Cache for the most recent receipts per block
+	transferLogsCache *lru.Cache[common.Hash, []*types.TransferLog]       // Cache for the most recent receipts per block
+	blockCache        *lru.Cache[common.Hash, *types.Block]               // Cache for the most recent entire blocks
+	txLookupCache     *lru.Cache[common.Hash, *rawdb.LegacyTxLookupEntry] // Cache for the most recent transaction lookup data.
+	badBlocks         *lru.Cache[common.Hash, *badBlock]                  // Cache for bad blocks
 
 	stopping atomic.Bool // false if chain is running, true when stopped
 
@@ -359,6 +361,7 @@ func NewBlockChain(
 		receiptsCache:     lru.NewCache[common.Hash, []*types.Receipt](receiptsCacheLimit),
 		blockCache:        lru.NewCache[common.Hash, *types.Block](blockCacheLimit),
 		txLookupCache:     lru.NewCache[common.Hash, *rawdb.LegacyTxLookupEntry](txLookupCacheLimit),
+		transferLogsCache: lru.NewCache[common.Hash, []*types.TransferLog](transferLogsCacheLimit),
 		badBlocks:         lru.NewCache[common.Hash, *badBlock](badBlockLimit),
 		engine:            engine,
 		vmConfig:          vmConfig,
@@ -1225,6 +1228,7 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	blockBatch := bc.db.NewBatch()
 	rawdb.WriteBlock(blockBatch, block)
 	rawdb.WriteReceipts(blockBatch, block.Hash(), block.NumberU64(), receipts)
+	rawdb.WriteTransferLogs(blockBatch, block.Hash(), block.NumberU64(), state.TransferLogs())
 	rawdb.WritePreimages(blockBatch, state.Preimages())
 	if err := blockBatch.Write(); err != nil {
 		log.Crit("Failed to write block into disk", "err", err)
