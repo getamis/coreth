@@ -35,6 +35,7 @@ import (
 	"github.com/ava-labs/coreth/core/vm"
 	"github.com/ava-labs/coreth/params"
 	"github.com/ava-labs/coreth/trie"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/event"
 )
@@ -353,10 +354,15 @@ func (bc *BlockChain) GetLogs(hash common.Hash, number uint64) [][]*types.Log {
 }
 
 // GetTransferLogs retrieves the transfer logs for all transactions in a given block.
-func (bc *BlockChain) GetTransferLogs(hash common.Hash) []*types.TransferLog {
+func (bc *BlockChain) GetTransferLogs(hash common.Hash) ([]*types.TransferLog, error) {
 	number := rawdb.ReadHeaderNumber(bc.db, hash)
 	if number == nil {
-		return nil
+		return nil, ethereum.NotFound
 	}
-	return rawdb.ReadTransferLogs(bc.db, hash, *number)
+	transferLogs, err := rawdb.ReadTransferLogs(bc.db, hash, *number)
+	if err != nil {
+		return nil, err
+	}
+	bc.transferLogsCache.Add(hash, transferLogs)
+	return transferLogs, nil
 }
