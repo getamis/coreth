@@ -43,7 +43,6 @@ awscpu
 .coverage
 
 bin/
-build/
 
 # Used for e2e testing
 avalanchego
