@@ -1,0 +1,33 @@
+language: go
+go_import_path: github.com/ava-labs/coreth
+sudo: false
+jobs:
+  allow_failures:
+    - stage: build
+      os: osx
+      env:
+        - azure-osx
+
+  include:
+    # This builder only tests code linters on latest version of Go
+    - stage: lint
+      os: linux
+      dist: jammy
+      go: 1.24.8
+      env:
+        - lint
+      git:
+        submodules: false # avoid cloning ethereum/tests
+      script:
+        - ./scripts/run_task.sh lint
+
+    - stage: build
+      os: linux
+      arch: amd64
+      dist: jammy
+      go: 1.24.8
+      env:
+        - GO111MODULE=on
+      script:
+        - ./scripts/run_task.sh build
+        - TIMEOUT=1200s travis_wait 120 ./scripts/run_task.sh build-test
