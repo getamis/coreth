@@ -106,6 +106,8 @@ const (
 	txLookupCacheLimit = 1024
 	badBlockLimit      = 10
 
+	transferLogsCacheLimit = 32
+
 	// BlockChainVersion ensures that an incompatible database forces a resync from scratch.
 	//
 	// Changelog:
@@ -228,6 +230,8 @@ type BlockChain struct {
 	txLookupCache *lru.Cache[common.Hash, *rawdb.LegacyTxLookupEntry] // Cache for the most recent transaction lookup data.
 	badBlocks     *lru.Cache[common.Hash, *badBlock]                  // Cache for bad blocks
 
+	transferLogsCache *lru.Cache[common.Hash, []*types.TransferLog] // Cache for the most recent receipts per block
+
 	stopping atomic.Bool // false if chain is running, true when stopped
 
 	engine    consensus.Engine
@@ -324,6 +328,7 @@ func NewBlockChain(
 		receiptsCache:     lru.NewCache[common.Hash, []*types.Receipt](receiptsCacheLimit),
 		blockCache:        lru.NewCache[common.Hash, *types.Block](blockCacheLimit),
 		txLookupCache:     lru.NewCache[common.Hash, *rawdb.LegacyTxLookupEntry](txLookupCacheLimit),
+		transferLogsCache: lru.NewCache[common.Hash, []*types.TransferLog](transferLogsCacheLimit),
 		badBlocks:         lru.NewCache[common.Hash, *badBlock](badBlockLimit),
 		engine:            engine,
 		vmConfig:          vmConfig,
@@ -1157,6 +1162,7 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	blockBatch := bc.db.NewBatch()
 	rawdb.WriteBlock(blockBatch, block)
 	rawdb.WriteReceipts(blockBatch, block.Hash(), block.NumberU64(), receipts)
+	rawdb.WriteTransferLogs(blockBatch, block.Hash(), block.NumberU64(), state.TransferLogs())
 	rawdb.WritePreimages(blockBatch, state.Preimages())
 	if err := blockBatch.Write(); err != nil {
 		log.Crit("Failed to write block into disk", "err", err)
@@ -1378,6 +1384,8 @@ func (bc *BlockChain) insertBlock(block *types.Block, writes bool) error {
 	triedbCommitTimer.Inc(statedb.TrieDBCommits.Milliseconds())     // Trie database commits are complete, we can mark them
 	blockWriteTimer.Inc((time.Since(wstart) - statedb.AccountCommits - statedb.StorageCommits - statedb.SnapshotCommits - statedb.TrieDBCommits).Milliseconds())
 	blockInsertTimer.Inc(time.Since(start).Milliseconds())
+
+	bc.WriteTransferLogs(block.Hash(), block.NumberU64(), statedb.TransferLogs())
 
 	log.Debug("Inserted new block", "number", block.Number(), "hash", block.Hash(),
 		"parentHash", block.ParentHash(),
@@ -2103,4 +2111,11 @@ func (bc *BlockChain) ResetToStateSyncedBlock(block *types.Block) error {
 // during block building.
 func (bc *BlockChain) CacheConfig() *CacheConfig {
 	return bc.cacheConfig
+}
+
+// WriteTransferLogs writes all the transfer logs belonging to a block.
+func (bc *BlockChain) WriteTransferLogs(hash common.Hash, number uint64, transferLogs []*types.TransferLog) {
+	bc.wg.Add(1)
+	defer bc.wg.Done()
+	rawdb.WriteTransferLogs(bc.db, hash, number, transferLogs)
 }
