@@ -45,6 +45,7 @@ require (
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.43.0
 	golang.org/x/exp v0.0.0-20241215155358-4a5509556b9e
+	golang.org/x/mod v0.29.0
 	golang.org/x/sync v0.17.0
 	golang.org/x/time v0.12.0
 	golang.org/x/tools v0.38.0
@@ -162,7 +163,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.37.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.7.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/mod v0.29.0 // indirect
 	golang.org/x/net v0.46.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
 	golang.org/x/sys v0.37.0 // indirect
@@ -193,3 +193,8 @@ tool (
 	github.com/ava-labs/libevm/rlp/rlpgen
 	github.com/onsi/ginkgo/v2/ginkgo
 )
+
+// libevm-1bccf4f is not a valid go mod version, so we need to replace it
+// with a valid version v1.7.4-0.20251106032031-434785186c03, which is presenting
+// https://github.com/getamis/go-ethereum/tree/libevm-1bccf4f
+replace github.com/ava-labs/libevm => github.com/getamis/go-ethereum v1.7.4-0.20251106032031-434785186c03

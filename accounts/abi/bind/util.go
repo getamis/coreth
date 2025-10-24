@@ -30,7 +30,12 @@ package bind
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
 	"time"
+
+	"golang.org/x/mod/modfile"
 
 	ethereum "github.com/ava-labs/libevm"
 	"github.com/ava-labs/libevm/common"
@@ -87,4 +92,23 @@ func WaitDeployed(ctx context.Context, b DeployBackend, tx *types.Transaction) (
 		err = ErrNoCodeAfterDeploy
 	}
 	return receipt.ContractAddress, err
+}
+
+func getLibevmVersion() (string, error) {
+	pwd, _ := os.Getwd()
+	modPath := filepath.Join(pwd, "..", "..", "..", "go.mod")
+	data, err := os.ReadFile(modPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read module path: %w", err)
+	}
+	f, err := modfile.Parse(modPath, data, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse module path: %w", err)
+	}
+	for _, r := range f.Replace {
+		if r.Old.Path == "github.com/ava-labs/libevm" {
+			return r.New.Version, nil
+		}
+	}
+	return "", fmt.Errorf("failed to find lib evm version")
 }
