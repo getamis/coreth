@@ -42,6 +42,7 @@ func ExampleInspectDatabase() {
 	// | Key-Value store | Headers                 | 0.00 B   |     0 |
 	// | Key-Value store | Bodies                  | 0.00 B   |     0 |
 	// | Key-Value store | Receipt lists           | 0.00 B   |     0 |
+	// | Key-Value store | Transfer logs           | 0.00 B   |     0 |
 	// | Key-Value store | Block number->hash      | 0.00 B   |     0 |
 	// | Key-Value store | Block hash->number      | 0.00 B   |     0 |
 	// | Key-Value store | Transaction index       | 0.00 B   |     0 |

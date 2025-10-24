@@ -46,6 +46,7 @@ require (
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.42.0
 	golang.org/x/exp v0.0.0-20241215155358-4a5509556b9e
+	golang.org/x/mod v0.28.0
 	golang.org/x/sync v0.17.0
 	golang.org/x/time v0.12.0
 	golang.org/x/tools v0.37.0
@@ -163,7 +164,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.37.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.7.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/mod v0.28.0 // indirect
 	golang.org/x/net v0.44.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
 	golang.org/x/sys v0.36.0 // indirect
@@ -194,3 +194,5 @@ tool (
 	github.com/ava-labs/libevm/rlp/rlpgen
 	github.com/onsi/ginkgo/v2/ginkgo
 )
+
+replace github.com/ava-labs/libevm => github.com/getamis/go-ethereum v1.7.4-0.20251027063005-e2dc53f43d7f

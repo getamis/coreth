@@ -2191,6 +2191,15 @@ func golangBindings(t *testing.T, overload bool) {
 	if out, err := replacer.CombinedOutput(); err != nil {
 		t.Fatalf("failed to replace binding test dependency to current source tree: %v\n%s", err, out)
 	}
+	libevmVersion, err := getLibevmVersion()
+	if err != nil {
+		t.Fatalf("failed to find libevm version")
+	}
+	libevmReplacer := exec.Command(gocmd, "mod", "edit", "-x", "-require", "github.com/ava-labs/libevm@v0.0.0", "-replace", "github.com/ava-labs/libevm=github.com/getamis/go-ethereum@"+libevmVersion)
+	libevmReplacer.Dir = pkg
+	if out, err := libevmReplacer.CombinedOutput(); err != nil {
+		t.Fatalf("failed to replace binding test dependency to current source tree: %v\n%s", err, out)
+	}
 	tidier := exec.Command(gocmd, "mod", "tidy", "-compat=1.24")
 	tidier.Dir = pkg
 	if out, err := tidier.CombinedOutput(); err != nil {
